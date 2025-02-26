@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Search</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #3c5aa6, #2a75bb, #0075be, #0a285f);
+            background-size: 300% 300%;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .app-container {
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #ffcb05;
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            text-shadow: 2px 2px 0 #3c5aa6, -2px 2px 0 #3c5aa6, 2px -2px 0 #3c5aa6, -2px -2px 0 #3c5aa6;
+        }
+        .search-box {
+            display: flex;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.15);
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+        }
+        #poke-search {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #ffcb05;
+            border-radius: 4px 0 0 4px;
+            font-size: 1rem;
+        }
+        #search-btn {
+            padding: 10px 15px;
+            background: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #search-btn:hover {
+            background: #cc0000;
+        }
+        .poke-display {
+            background: rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            margin-bottom: 1rem;
+            border: 3px solid #ffcb05;
+        }
+        .poke-name {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #ffcb05;
+            text-transform: capitalize;
+            text-shadow: 1px 1px 0 #3c5aa6;
+        }
+        .poke-img {
+            height: 180px;
+            margin: 1rem 0;
+            filter: drop-shadow(0 0 8px rgba(255,255,255,0.4));
+        }
+        .types-list {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+        .type-pill {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            text-transform: capitalize;
+            border: 1px solid #ffcb05;
+        }
+        .loading-msg, .error-msg {
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .loading-msg {
+            background: rgba(255,255,255,0.15);
+            border: 2px solid #ffcb05;
+            color: #ffcb05;
+        }
+        .error-msg {
+            background: rgba(255,0,0,0.2);
+            border: 2px solid #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <h1>Pokémon Search</h1>
+        <div class="search-box">
+            <input type="text" id="poke-search" placeholder="Enter Pokémon name or ID...">
+            <button id="search-btn">Find</button>
+        </div>
+        <div id="loading" class="loading-msg" style="display: none;">Finding Pokémon...</div>
+        <div id="error" class="error-msg" style="display: none;"></div>
+        <div id="result" class="poke-display" style="display: none;">
+            <div id="name" class="poke-name"></div>
+            <img id="sprite" class="poke-img" src="" alt="">
+            <div id="types" class="types-list"></div>
+        </div>
+    </div>
+    <script>
+        const searchInput = document.getElementById('poke-search');
+        const searchBtn = document.getElementById('search-btn');
+        const resultDiv = document.getElementById('result');
+        const nameDisplay = document.getElementById('name');
+        const spriteImg = document.getElementById('sprite');
+        const typesContainer = document.getElementById('types');
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const typeColors = {
+            fire: '#ff7b54', water: '#4cc9f0', grass: '#43aa8b',
+            electric: '#fee440', ice: '#90e0ef', fighting: '#e63946',
+            poison: '#9b5de5', ground: '#cca776', flying: '#a0c4ff',
+            psychic: '#ff66b3', bug: '#96e072', rock: '#b9a88c',
+            ghost: '#8a508f', dragon: '#5d6dbf', dark: '#424242',
+            steel: '#a5a9ad', fairy: '#ffafcc', normal: '#a2a2a2'
+        };
+        searchBtn.addEventListener('click', findPokemon);
+        searchInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') findPokemon();
+        });
+        async function findPokemon() {
+            const searchTerm = searchInput.value.trim().toLowerCase();
+            if (!searchTerm) {
+                showError('Please enter a name or number');
+                return;
+            }
+            setVisibility('loading');
+            try {
+                const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${searchTerm}`);
+                if (!response.ok) {
+                    throw new Error('Pokémon not found! Check spelling or try another');
+                }
+                const pokemon = await response.json();
+                displayPokemon(pokemon);
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+        function displayPokemon(data) {
+            nameDisplay.textContent = data.name;
+            spriteImg.src = data.sprites.other['official-artwork'].front_default || data.sprites.front_default;
+            spriteImg.alt = data.name;
+            typesContainer.innerHTML = '';
+            data.types.forEach(typeData => {
+                const badge = document.createElement('span');
+                badge.textContent = typeData.type.name;
+                badge.className = 'type-pill';
+                badge.style.backgroundColor = typeColors[typeData.type.name] || '#777';
+                typesContainer.appendChild(badge);
+            });
+            setVisibility('result');
+        }
+        function showError(message) {
+            errorDiv.textContent = message;
+            setVisibility('error');
+        }
+        function setVisibility(visibleElement) {
+            loadingDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+            resultDiv.style.display = 'none';
+            document.getElementById(visibleElement).style.display = 'block';
+        }
+    </script>
+</body>
+</html>
